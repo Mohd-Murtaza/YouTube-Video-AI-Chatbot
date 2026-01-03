@@ -1,0 +1,102 @@
+'use client';
+
+import { useState } from 'react';
+import { Sparkles, Zap, Shield } from 'lucide-react';
+import { motion } from 'framer-motion';
+import GridBackground from '@/components/ui/grid-background';
+import { Cover } from '@/components/ui/cover';
+
+export default function HeroSection() {
+  const [videoUrl, setVideoUrl] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    console.log('Video URL:', videoUrl);
+    // Will connect to API later
+  };
+
+  return (
+    <div className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-hidden bg-black">
+      <GridBackground />
+      <motion.section
+        initial={{ opacity: 0.0, y: 40 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        transition={{
+          delay: 0.3,
+          duration: 0.8,
+          ease: "easeInOut",
+        }}
+        className="relative z-10 w-full px-4 sm:px-6 lg:px-8 py-32"
+      >
+        <div className="max-w-7xl mx-auto text-center">
+        {/* Badge */}
+        <div className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-500/10 border border-blue-500/30 rounded-full mb-8 animate-fade-in">
+          <Sparkles className="w-4 h-4 text-blue-500" />
+          <span className="text-sm font-medium text-blue-500">AI-Powered Video Analysis</span>
+        </div>
+
+        {/* Heading */}
+        <div className="mb-12">
+          <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold mb-6 text-white leading-tight animate-fade-in-up">
+            Chat with Any YouTube Video
+            <span className="block">
+              <Cover>Learn Faster</Cover>
+            </span>
+          </h1>
+          <p className="text-lg sm:text-xl md:text-2xl text-gray-300 max-w-3xl mx-auto leading-relaxed">
+            Extract insights instantly. Ask questions naturally. Get accurate answers powered by advanced AI.
+          </p>
+        </div>
+
+        {/* Video URL Input */}
+        <form onSubmit={handleSubmit} className="max-w-3xl mx-auto mb-16">
+          <div className="flex flex-col sm:flex-row gap-3 p-2 bg-black/50 backdrop-blur-sm rounded-2xl border border-white/20">
+            <input
+              type="url"
+              value={videoUrl}
+              onChange={(e) => setVideoUrl(e.target.value)}
+              placeholder="https://www.youtube.com/watch?v=..."
+              className="flex-1 px-4 sm:px-6 py-3 sm:py-4 text-base sm:text-lg bg-transparent text-white placeholder-gray-500 border-0 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-xl"
+              required
+            />
+            <button
+              type="submit"
+              className="px-6 sm:px-8 py-3 sm:py-4 bg-blue-600 hover:bg-blue-700 text-white text-sm sm:text-base font-semibold rounded-xl hover:shadow-[0_0_30px_rgba(59,130,246,0.5)] transition-all active:scale-[0.98]"
+            >
+              Analyze Video →
+            </button>
+          </div>
+          <p className="text-xs sm:text-sm text-gray-400 mt-3">
+            Good Accuracy • 100% free • Instant results
+          </p>
+        </form>
+
+        {/* Stats */}
+        <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 max-w-4xl mx-auto">
+          <div className="inline-flex items-center gap-2 sm:gap-3 px-4 sm:px-5 py-2.5 sm:py-3 bg-black/40 backdrop-blur-sm rounded-full border border-blue-500/30 hover:border-blue-500/60 hover:shadow-[0_0_20px_rgba(59,130,246,0.3)] transition animate-fade-in-up" style={{animationDelay: '0.2s'}}>
+            <Sparkles className="w-4 sm:w-5 h-4 sm:h-5 text-blue-500" />
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <span className="text-lg sm:text-2xl font-bold text-white">100%</span>
+              <span className="text-xs sm:text-sm text-gray-400">Free Forever</span>
+            </div>
+          </div>
+          <div className="inline-flex items-center gap-2 sm:gap-3 px-4 sm:px-5 py-2.5 sm:py-3 bg-black/40 backdrop-blur-sm rounded-full border border-blue-500/30 hover:border-blue-500/60 hover:shadow-[0_0_20px_rgba(59,130,246,0.3)] transition animate-fade-in-up" style={{animationDelay: '0.4s'}}>
+            <Zap className="w-4 sm:w-5 h-4 sm:h-5 text-blue-500" />
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <span className="text-lg sm:text-2xl font-bold text-white">Quick</span>
+              <span className="text-xs sm:text-sm text-gray-400">Processing Time</span>
+            </div>
+          </div>
+          <div className="inline-flex items-center gap-2 sm:gap-3 px-4 sm:px-5 py-2.5 sm:py-3 bg-black/40 backdrop-blur-sm rounded-full border border-blue-500/30 hover:border-blue-500/60 hover:shadow-[0_0_20px_rgba(59,130,246,0.3)] transition animate-fade-in-up" style={{animationDelay: '0.6s'}}>
+            <Shield className="w-4 sm:w-5 h-4 sm:h-5 text-blue-500" />
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <span className="text-lg sm:text-2xl font-bold text-white">AI</span>
+              <span className="text-xs sm:text-sm text-gray-400">Powered Accuracy</span>
+            </div>
+          </div>
+        </div>
+        </div>
+      </motion.section>
+    </div>
+  );
+}
