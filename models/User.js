@@ -15,28 +15,63 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
       match: [/^\S+@\S+\.\S+$/, 'Please provide a valid email'],
+      index: true, // Index for faster email lookups
     },
     password: {
       type: String,
-      required: [true, 'Please provide a password'],
-      minlength: 6,
+      minlength: 8,
       select: false, // Don't return password by default
-    },
-    avatar: {
-      type: String,
-      default: null,
-    },
-    role: {
-      type: String,
-      enum: ['user', 'admin'],
-      default: 'user',
     },
     isVerified: {
       type: Boolean,
       default: false,
     },
-    resetPasswordToken: String,
-    resetPasswordExpire: Date,
+    // OAuth fields
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true, // Index for faster Google ID lookups
+    },
+    provider: {
+      type: String,
+      enum: ['local', 'google'],
+      default: 'local',
+    },
+    // OTP for email verification and password reset
+    otp: {
+      type: String,
+      select: false,
+    },
+    otpExpiry: {
+      type: Date,
+      select: false,
+    },
+    otpPurpose: {
+      type: String,
+      enum: ['email_verification', 'password_reset'],
+      select: false,
+    },
+    // Refresh tokens stored as array (no separate model needed)
+    refreshTokens: [
+      {
+        token: {
+          type: String,
+          required: true,
+          index: true, // Index for faster token lookups
+        },
+        expiresAt: {
+          type: Date,
+          required: true,
+        },
+        userAgent: String,
+        ipAddress: String,
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
   },
   {
     timestamps: true,
@@ -44,17 +79,86 @@ const userSchema = new mongoose.Schema(
 );
 
 // Hash password before saving
-userSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) {
-    next();
+userSchema.pre('save', async function () {
+  // Only hash password if it's modified AND exists (OAuth users may not have password)
+  if (this.isModified('password') && this.password) {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
   }
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
 });
 
 // Method to compare password
 userSchema.methods.comparePassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
+};
+
+// Generate 6-digit OTP
+userSchema.methods.generateOTP = function (purpose = 'email_verification') {
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  this.otp = otp;
+  this.otpExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+  this.otpPurpose = purpose;
+  return otp;
+};
+
+// Verify OTP
+userSchema.methods.verifyOTP = function (inputOTP, purpose) {
+  if (!this.otp || !this.otpExpiry || !this.otpPurpose) {
+    return { valid: false, message: 'No OTP found' };
+  }
+
+  if (this.otpPurpose !== purpose) {
+    return { valid: false, message: 'OTP purpose mismatch' };
+  }
+
+  if (Date.now() > this.otpExpiry) {
+    return { valid: false, message: 'OTP expired' };
+  }
+
+  if (this.otp !== inputOTP) {
+    return { valid: false, message: 'Invalid OTP' };
+  }
+
+  return { valid: true };
+};
+
+// Clear OTP after verification
+userSchema.methods.clearOTP = function () {
+  this.otp = undefined;
+  this.otpExpiry = undefined;
+  this.otpPurpose = undefined;
+};
+
+// Add refresh token (with auto-cleanup of expired tokens)
+userSchema.methods.addRefreshToken = function (token, expiresAt, userAgent, ipAddress) {
+  // Auto-cleanup expired tokens before adding new one (no cron job needed)
+  const now = Date.now();
+  this.refreshTokens = this.refreshTokens.filter((t) => t.expiresAt > now);
+  
+  // Add new token
+  this.refreshTokens.push({
+    token,
+    expiresAt,
+    userAgent,
+    ipAddress,
+  });
+};
+
+// Remove expired tokens
+userSchema.methods.cleanupExpiredTokens = function () {
+  this.refreshTokens = this.refreshTokens.filter(
+    (token) => token.expiresAt > Date.now()
+  );
+};
+
+// Remove specific token (logout)
+userSchema.methods.removeRefreshToken = function (token) {
+  this.refreshTokens = this.refreshTokens.filter((t) => t.token !== token);
+};
+
+// Remove all tokens (logout all devices)
+userSchema.methods.removeAllRefreshTokens = function () {
+  this.refreshTokens = [];
 };
 
 export default mongoose.models.User || mongoose.model('User', userSchema);

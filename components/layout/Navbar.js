@@ -2,10 +2,16 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { Menu, X, Play } from 'lucide-react';
+import { Menu, X, Play, LogOut, User } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import AuthModal from '@/components/auth/AuthModal';
+import ForgotPasswordModal from '@/components/auth/ForgotPasswordModal';
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [forgotPasswordModalOpen, setForgotPasswordModalOpen] = useState(false);
+  const { user, logout } = useAuth();
 
   // Lock body scroll when mobile menu is open
   useEffect(() => {
@@ -50,9 +56,29 @@ export default function Navbar() {
                 <a href="#faq" className="text-gray-300 hover:text-blue-500 transition font-medium">
                   FAQ
                 </a>
-                <button className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg hover:shadow-[0_0_20px_rgba(59,130,246,0.5)] transition font-medium">
-                  Get Started
-                </button>
+                
+                {user ? (
+                  <div className="flex items-center gap-4">
+                    <span className="text-gray-300 flex items-center gap-2">
+                      <User className="w-4 h-4" />
+                      {user.name}
+                    </span>
+                    <button
+                      onClick={logout}
+                      className="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg hover:shadow-[0_0_20px_rgba(239,68,68,0.5)] transition font-medium flex items-center gap-2"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Logout
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setAuthModalOpen(true)}
+                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg hover:shadow-[0_0_20px_rgba(59,130,246,0.5)] transition font-medium"
+                  >
+                    Get Started
+                  </button>
+                )}
               </div>
 
               {/* Mobile Menu Button */}
@@ -80,9 +106,23 @@ export default function Navbar() {
                 <a href="#faq" onClick={handleNavClick} className="block text-gray-300 hover:text-blue-500 transition font-medium">
                   FAQ
                 </a>
-                <button className="w-full px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg hover:shadow-[0_0_20px_rgba(59,130,246,0.5)] transition font-medium">
-                  Get Started
-                </button>
+                {user ? (
+                  <>
+                    <button
+                      onClick={() => { logout(); handleNavClick(); }}
+                      className="w-full px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg transition font-medium"
+                    >
+                      Logout
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => { setAuthModalOpen(true); handleNavClick(); }}
+                    className="w-full px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg hover:shadow-[0_0_20px_rgba(59,130,246,0.5)] transition font-medium"
+                  >
+                    Get Started
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -96,6 +136,23 @@ export default function Navbar() {
           onClick={() => setIsOpen(false)}
         />
       )}
+      
+      {/* Auth Modal */}
+      <AuthModal 
+        isOpen={authModalOpen} 
+        onClose={() => setAuthModalOpen(false)}
+        initialMode="login"
+        onForgotPassword={() => {
+          setAuthModalOpen(false);
+          setForgotPasswordModalOpen(true);
+        }}
+      />
+
+      {/* Forgot Password Modal */}
+      <ForgotPasswordModal
+        isOpen={forgotPasswordModalOpen}
+        onClose={() => setForgotPasswordModalOpen(false)}
+      />
     </>
   );
 }

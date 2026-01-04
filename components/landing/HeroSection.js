@@ -5,12 +5,22 @@ import { Sparkles, Zap, Shield } from 'lucide-react';
 import { motion } from 'framer-motion';
 import GridBackground from '@/components/ui/grid-background';
 import { Cover } from '@/components/ui/cover';
+import { useAuth } from '@/context/AuthContext';
+import AuthModal from '@/components/auth/AuthModal';
 
 export default function HeroSection() {
   const [videoUrl, setVideoUrl] = useState('');
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const { user } = useAuth();
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    
+    if (!user) {
+      setAuthModalOpen(true);
+      return;
+    }
+    
     console.log('Video URL:', videoUrl);
     // Will connect to API later
   };
@@ -97,6 +107,13 @@ export default function HeroSection() {
         </div>
         </div>
       </motion.section>
+      
+      {/* Auth Modal */}
+      <AuthModal 
+        isOpen={authModalOpen} 
+        onClose={() => setAuthModalOpen(false)}
+        initialMode="login"
+      />
     </div>
   );
 }
