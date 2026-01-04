@@ -85,7 +85,7 @@ export default function GoogleOAuthButton({ mode = 'signin' }) {
 
   return (
     <div className="w-full">
-      <div id="google-signin-button" className="w-full"></div>
+      <div id="google-signin-button" className="w-full grid place-items-center"></div>
     </div>
   );
 }

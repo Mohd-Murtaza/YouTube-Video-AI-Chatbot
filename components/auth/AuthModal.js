@@ -11,16 +11,19 @@ import GoogleOAuthButton from './GoogleOAuthButton';
 
 export default function AuthModal({ isOpen, onClose, initialMode = 'login', onForgotPassword }) {
   const [mode, setMode] = useState(initialMode);
-  const [step, setStep] = useState('form'); // 'form' or 'otp'
+  const [step, setStep] = useState('form'); // 'form' or 'otp' or 'resetPassword'
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
+    oldPassword: '',
+    newPassword: '',
+    confirmPassword: '',
   });
   const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login, sendOTP, verifyOTP } = useAuth();
+  const { login, sendOTP, verifyOTP, changePassword } = useAuth();
 
   if (!isOpen) return null;
 
@@ -196,6 +199,8 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', onFo
           <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">
             {step === 'otp' 
               ? 'Verify Email' 
+              : step === 'resetPassword'
+              ? 'Reset Password'
               : mode === 'login' 
               ? 'Welcome Back' 
               : 'Create Account'}
@@ -203,6 +208,8 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', onFo
           <p className="text-gray-400 text-sm sm:text-base">
             {step === 'otp'
               ? `Enter the 6-digit code sent to ${formData.email}`
+              : step === 'resetPassword'
+              ? 'Enter your current and new password'
               : mode === 'login'
               ? 'Login to continue your learning journey'
               : 'Sign up to start chatting with videos'}
@@ -254,6 +261,153 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', onFo
               </button>
             </div>
           </div>
+        ) : step === 'resetPassword' ? (
+          /* Reset Password Step */
+          <form onSubmit={async (e) => {
+            e.preventDefault();
+            setError('');
+
+            // Validate email
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(formData.email)) {
+              setError('Please enter a valid email address');
+              return;
+            }
+
+            if (!formData.oldPassword || !formData.newPassword || !formData.confirmPassword) {
+              setError('Please fill all password fields');
+              return;
+            }
+
+            if (formData.newPassword !== formData.confirmPassword) {
+              setError('New passwords do not match');
+              return;
+            }
+
+            if (formData.oldPassword === formData.newPassword) {
+              setError('New password must be different from old password');
+              return;
+            }
+
+            const passwordErrors = [];
+            if (formData.newPassword.length < 8) passwordErrors.push('at least 8 characters');
+            if (!/[A-Z]/.test(formData.newPassword)) passwordErrors.push('one uppercase letter');
+            if (!/[a-z]/.test(formData.newPassword)) passwordErrors.push('one lowercase letter');
+            if (!/[0-9]/.test(formData.newPassword)) passwordErrors.push('one digit');
+            if (!/[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\/`~]/.test(formData.newPassword)) passwordErrors.push('one special character');
+
+            if (passwordErrors.length > 0) {
+              setError(`Password must contain ${passwordErrors.join(', ')}`);
+              return;
+            }
+
+            setLoading(true);
+            try {
+              // Call backend to reset password with email + old password verification
+              const response = await fetch('/api/auth/reset-password-with-verification', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  email: formData.email,
+                  oldPassword: formData.oldPassword,
+                  newPassword: formData.newPassword,
+                  confirmPassword: formData.confirmPassword,
+                }),
+              });
+
+              const result = await response.json();
+              
+              if (result.success) {
+                alert('✅ Password changed successfully! Please login with your new password.');
+                setStep('form');
+                setFormData({ name: '', email: '', password: '', oldPassword: '', newPassword: '', confirmPassword: '' });
+                setError('');
+              } else {
+                setError(result.message || 'Failed to change password');
+              }
+            } catch (err) {
+              setError('Failed to change password. Please try again.');
+            } finally {
+              setLoading(false);
+            }
+          }} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Email Address
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  required
+                  className="w-full pl-10 pr-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition"
+                  placeholder="Enter your email"
+                />
+              </div>
+            </div>
+
+            <PasswordInput
+              name="oldPassword"
+              value={formData.oldPassword}
+              onChange={handleChange}
+              required
+              label="Current Password"
+              placeholder="Enter current password"
+            />
+
+            <PasswordInput
+              name="newPassword"
+              value={formData.newPassword}
+              onChange={handleChange}
+              required
+              minLength={8}
+              label="New Password"
+              placeholder="Enter new password"
+              hint="Min 8 chars with uppercase, lowercase, digit & special character"
+            />
+
+            <PasswordInput
+              name="confirmPassword"
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              required
+              minLength={8}
+              label="Confirm New Password"
+              placeholder="Confirm new password"
+            />
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setStep('form');
+                  setFormData({ ...formData, oldPassword: '', newPassword: '', confirmPassword: '' });
+                  setError('');
+                }}
+                disabled={loading}
+                className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 disabled:bg-slate-800/50 text-white font-semibold rounded-xl transition"
+              >
+                Back
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white font-semibold rounded-xl transition flex items-center justify-center gap-2"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Changing...
+                  </>
+                ) : (
+                  'Change Password'
+                )}
+              </button>
+            </div>
+          </form>
         ) : (
           /* Login/Register Form */
           <>
@@ -351,16 +505,24 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', onFo
           </p>
           
           {mode === 'login' && (
-            <button
-              onClick={() => {
-                if (onForgotPassword) {
-                  onForgotPassword();
-                }
-              }}
-              className="mt-2 text-gray-400 hover:text-white text-sm transition"
-            >
-              Forgot Password?
-            </button>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => {
+                  if (onForgotPassword) {
+                    onForgotPassword();
+                  }
+                }}
+                className="text-gray-400 hover:text-white text-sm transition"
+              >
+                Forgot Password?
+              </button>
+              <button
+                onClick={() => setStep('resetPassword')}
+                className="text-blue-500 hover:text-blue-400 text-sm transition font-medium"
+              >
+                Reset Password
+              </button>
+            </div>
           )}
         </div>
         </>

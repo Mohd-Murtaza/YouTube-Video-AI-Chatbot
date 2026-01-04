@@ -48,8 +48,8 @@ export async function POST(request) {
       );
     }
 
-    // Mark user as verified and clear OTP
-    user.isVerified = true;
+    // Mark user as verified, clear OTP, and remove expiration
+    user.markAsVerified();
     user.clearOTP();
     await user.save();
 

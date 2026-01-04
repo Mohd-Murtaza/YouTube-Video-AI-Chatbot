@@ -70,22 +70,26 @@ export default function FAQ() {
               >
                 <button
                   onClick={() => toggleFAQ(index)}
-                  className="w-full px-5 sm:px-6 py-4 sm:py-5 flex items-center justify-between bg-black/40 backdrop-blur-sm hover:bg-white/5 transition"
+                  className="w-full px-5 sm:px-6 py-4 sm:py-5 flex items-center justify-between bg-black/40 backdrop-blur-sm hover:bg-white/5 transition-all duration-500"
                 >
                   <span className="font-semibold text-left text-white pr-4 text-sm sm:text-base">
                     {faq.question}
                   </span>
                   <ChevronDown
-                    className={`w-5 h-5 transition-transform flex-shrink-0 ${
+                    className={`w-5 h-5 transition-all duration-500 flex-shrink-0 ${
                       openIndex === index ? 'rotate-180 text-blue-500' : 'text-gray-400'
                     }`}
                   />
                 </button>
-                {openIndex === index && (
+                <div 
+                  className={`overflow-hidden transition-all duration-500 ease-in-out ${
+                    openIndex === index ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                  }`}
+                >
                   <div className="px-5 sm:px-6 py-4 bg-black/60 border-t border-white/10">
                     <p className="text-gray-300 leading-relaxed text-sm sm:text-base">{faq.answer}</p>
                   </div>
-                )}
+                </div>
               </div>
             </CardSpotlight>
           ))}

@@ -108,10 +108,17 @@ export default function Navbar() {
                 </a>
                 {user ? (
                   <>
+                    <div className="flex items-center gap-3 px-4 py-3 bg-white/5 rounded-lg border border-white/10">
+                      <span className="text-gray-300 flex items-center gap-2">
+                      <User className="w-4 h-4" />
+                      {user.name}
+                    </span>
+                    </div>
                     <button
                       onClick={() => { logout(); handleNavClick(); }}
-                      className="w-full px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg transition font-medium"
+                      className="w-full px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg transition font-medium flex items-center justify-center gap-2"
                     >
+                      <LogOut className="w-4 h-4" />
                       Logout
                     </button>
                   </>

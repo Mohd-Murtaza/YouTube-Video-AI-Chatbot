@@ -57,6 +57,7 @@ export async function POST(request) {
         // DON'T change provider - allow both password and Google login
         user.profilePicture = user.profilePicture || googleUser.picture; // Use Google picture if no existing picture
         user.isVerified = true; // Verify email since Google verified it
+        user.expiresAt = undefined; // Remove expiration - user is now permanent
       }
 
       // Update last login
@@ -71,6 +72,7 @@ export async function POST(request) {
         provider: 'google',
         isVerified: true, // Google emails are already verified
         profilePicture: googleUser.picture,
+        expiresAt: undefined, // Google users are immediately verified, no expiration
       });
     }
 

@@ -52,6 +52,13 @@ const userSchema = new mongoose.Schema(
       enum: ['email_verification', 'password_reset'],
       select: false,
     },
+    // Expiration timestamp for unverified users
+    // Will be removed once user is verified
+    expiresAt: {
+      type: Date,
+      default: () => new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
+      index: { expires: 0 }, // TTL index - MongoDB will auto-delete when expiresAt is reached
+    },
     // Refresh tokens stored as array (no separate model needed)
     refreshTokens: [
       {
@@ -127,6 +134,12 @@ userSchema.methods.clearOTP = function () {
   this.otp = undefined;
   this.otpExpiry = undefined;
   this.otpPurpose = undefined;
+};
+
+// Mark user as verified and remove expiration (prevent TTL deletion)
+userSchema.methods.markAsVerified = function () {
+  this.isVerified = true;
+  this.expiresAt = undefined; // Remove expiration - user is now permanent
 };
 
 // Add refresh token (with auto-cleanup of expired tokens)
