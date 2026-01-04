@@ -83,10 +83,6 @@ export async function POST(request) {
         isVerified: user.isVerified,
       },
     });
-        isVerified: user.isVerified,
-        createdAt: user.createdAt,
-      },
-    });
 
     // Set httpOnly cookies
     return setAuthCookies(response, accessToken, refreshToken);
