@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Sparkles, Zap, Shield } from 'lucide-react';
 import { motion } from 'framer-motion';
 import GridBackground from '@/components/ui/grid-background';
@@ -11,18 +12,59 @@ import AuthModal from '@/components/auth/AuthModal';
 export default function HeroSection() {
   const [videoUrl, setVideoUrl] = useState('');
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [error, setError] = useState('');
   const { user } = useAuth();
+  const router = useRouter();
+
+  // Function to extract YouTube video ID from URL
+  const extractVideoId = (url) => {
+    const patterns = [
+      /(?:youtube\.com\/watch\?v=)([^&]+)/i,
+      /(?:youtube\.com\/embed\/)([^?]+)/i,
+      /(?:youtu\.be\/)([^?]+)/i,
+    ];
+
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match && match[1]) {
+        return match[1];
+      }
+    }
+    return null;
+  };
+
+  // Function to validate YouTube URL
+  const isValidYouTubeUrl = (url) => {
+    const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+/i;
+    return youtubeRegex.test(url);
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    setError('');
+    
+    if (!videoUrl.trim()) {
+      setError('Please enter a YouTube video URL');
+      return;
+    }
+
+    if (!isValidYouTubeUrl(videoUrl)) {
+      setError('Please enter a valid YouTube video URL');
+      return;
+    }
     
     if (!user) {
       setAuthModalOpen(true);
       return;
     }
-    
-    console.log('Video URL:', videoUrl);
-    // Will connect to API later
+
+    // Extract video ID and navigate to video page
+    const videoId = extractVideoId(videoUrl);
+    if (videoId) {
+      router.push(`/video/${videoId}`);
+    } else {
+      setError('Could not extract video ID from URL');
+    }
   };
 
   return (
@@ -73,9 +115,14 @@ export default function HeroSection() {
               type="submit"
               className="px-6 sm:px-8 py-3 sm:py-4 bg-blue-600 hover:bg-blue-700 text-white text-sm sm:text-base font-semibold rounded-xl hover:shadow-[0_0_30px_rgba(59,130,246,0.5)] transition-all active:scale-[0.98]"
             >
-              Analyze Video →
+              Chat →
             </button>
           </div>
+          {error && (
+            <p className="text-sm text-red-400 mt-3">
+              ⚠️ {error}
+            </p>
+          )}
           <p className="text-xs sm:text-sm text-gray-400 mt-3">
             Good Accuracy • 100% free • Instant results
           </p>
