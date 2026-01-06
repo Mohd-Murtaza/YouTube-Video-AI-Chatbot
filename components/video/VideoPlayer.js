@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Eye, ThumbsUp, Calendar, FileText, Subtitles } from 'lucide-react';
 
 export default function VideoPlayer({ videoId, videoData }) {
@@ -26,28 +26,32 @@ export default function VideoPlayer({ videoId, videoData }) {
     });
   };
 
-  const fetchTranscript = async () => {
+  const fetchTranscript = useCallback(async () => {
     if (transcript) return;
     
     setLoadingTranscript(true);
     try {
-      // Placeholder for transcript fetching - backend API integration pending
-      setTimeout(() => {
-        setTranscript('Transcript will be available here once the backend API is connected...');
-        setLoadingTranscript(false);
-      }, 1000);
+      const response = await fetch(`/api/transcript/${videoId}`);
+      const data = await response.json();
+      
+      if (data.transcript) {
+        setTranscript(data.transcript);
+      } else {
+        setTranscript(data.error || 'Transcript not available');
+      }
     } catch (error) {
       console.error('Error fetching transcript:', error);
-      setTranscript('Transcript not available for this video.');
+      setTranscript('Failed to load transcript');
+    } finally {
       setLoadingTranscript(false);
     }
-  };
+  }, [videoId, transcript]);
 
   useEffect(() => {
     if (activeTab === 'transcript') {
       fetchTranscript();
     }
-  }, [activeTab]);
+  }, [activeTab, fetchTranscript]);
 
   return (
     <div className="w-full h-full min-h-[600px] flex flex-col overflow-y-auto p-3 sm:p-4 lg:p-6">

@@ -23,17 +23,41 @@ export default function ChatInterface({ videoId, videoData }) {
     setInputMessage('');
     setIsProcessing(true);
 
-    // Simulating AI response - will be replaced with actual API integration
-    setTimeout(() => {
-      const aiMessage = {
-        id: Date.now() + 1,
-        type: 'ai',
-        content: 'This is a demo response. AI integration will be added later.',
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, aiMessage]);
-      setIsProcessing(false);
-    }, 1000);
+    try {
+        const response=await fetch('/api/chat', {
+            method: "POST",
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                message: inputMessage,
+                videoId: videoId,
+                videoData: videoData
+            })
+        });
+        const data=await response.json()
+        const aiMessage={
+            id: Date.now() + 1,
+            type: 'ai',
+            content: data.answer,
+            timestamp: new Date(),
+        }
+        setMessages(prev=> [...prev, ])
+    } catch (err) {
+        console.log('Error fetching AI response:', err);
+        setIsProcessing(false);
+    } finally {
+        setIsProcessing(false);
+    }
+    // // Simulating AI response - will be replaced with actual API integration
+    // setTimeout(() => {
+    //   const aiMessage = {
+    //     id: Date.now() + 1,
+    //     type: 'ai',
+    //     content: 'This is a demo response. AI integration will be added later.',
+    //     timestamp: new Date(),
+    //   };
+    //   setMessages((prev) => [...prev, aiMessage]);
+    //   setIsProcessing(false);
+    // }, 1000);
   };
 
   const quickActions = [
