@@ -7,26 +7,60 @@ async function fetchTranscriptPython(videoId) {
   return new Promise((resolve, reject) => {
     const python = spawn('python3', ['-c', `
 import json
+import os
 from youtube_transcript_api import YouTubeTranscriptApi
 
-try:
-    # Create API instance and list transcripts
-    api = YouTubeTranscriptApi()
-    transcript_list = api.list('${videoId}')
+def try_fetch_transcript(video_id, proxy_list):
+    """Try fetching transcript with multiple proxy fallback"""
+    last_error = None
     
-    # Find Hindi or English transcript
+    # Try without proxy first (works locally)
     try:
-        transcript = transcript_list.find_transcript(['hi', 'en'])
-    except:
-        transcript = transcript_list.find_generated_transcript(['hi', 'en'])
+        api = YouTubeTranscriptApi()
+        transcript_list = api.list(video_id)
+        transcript = get_transcript(transcript_list)
+        return format_transcript(transcript)
+    except Exception as e:
+        last_error = e
+        print(f"No proxy attempt failed: {str(e)[:100]}", file=__import__('sys').stderr)
     
-    # Fetch transcript data
+    # Try each proxy in the list
+    for i, proxy_url in enumerate(proxy_list):
+        if not proxy_url:
+            continue
+        try:
+            print(f"Trying proxy {i+1}/{len(proxy_list)}: {proxy_url[:30]}...", file=__import__('sys').stderr)
+            proxies = {'https': proxy_url, 'http': proxy_url}
+            api = YouTubeTranscriptApi(proxies=proxies)
+            transcript_list = api.list(video_id)
+            transcript = get_transcript(transcript_list)
+            return format_transcript(transcript, proxy_used=f"proxy_{i+1}")
+        except Exception as e:
+            last_error = e
+            print(f"Proxy {i+1} failed: {str(e)[:100]}", file=__import__('sys').stderr)
+            continue
+    
+    # All proxies failed
+    raise last_error
+
+def get_transcript(transcript_list):
+    """Get Hindi or English transcript"""
+    try:
+        return transcript_list.find_transcript(['hi', 'en'])
+    except:
+        return transcript_list.find_generated_transcript(['hi', 'en'])
+
+def format_transcript(transcript, proxy_used=None):
+    """Format transcript data with timestamps"""
+    data = transcript.fetch()
+def format_transcript(transcript, proxy_used=None):
+    """Format transcript data with timestamps"""
     data = transcript.fetch()
     
     # Format segments with timestamps
     segments = []
     for item in data:
-        start = item.start
+        start = item['start']
         hours = int(start // 3600)
         minutes = int((start % 3600) // 60)
         seconds = int(start % 60)
@@ -34,11 +68,11 @@ try:
         timestamp = f"{hours:02d}:{minutes:02d}:{seconds:02d}.{milliseconds:03d}"
         segments.append({
             "timestamp": timestamp,
-            "text": item.text.strip()
+            "text": item['text'].strip()
         })
     
     # Full text
-    full_text = ' '.join([item.text for item in data])
+    full_text = ' '.join([item['text'] for item in data])
     
     result = {
         "transcript": full_text,
@@ -47,7 +81,19 @@ try:
         "source": "youtube-transcript-api"
     }
     
+    if proxy_used:
+        result["proxy_used"] = proxy_used
+    
+    return result
+
+try:
+    # Get proxy list from environment (comma-separated)
+    proxy_env = os.environ.get('YOUTUBE_PROXY', '')
+    proxy_list = [p.strip() for p in proxy_env.split(',') if p.strip()]
+    
+    result = try_fetch_transcript('${videoId}', proxy_list)
     print(json.dumps(result))
+    
 except Exception as e:
     import traceback
     print(json.dumps({"error": str(e), "traceback": traceback.format_exc()}))
