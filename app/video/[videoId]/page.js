@@ -46,13 +46,29 @@ export default function VideoPage() {
       }
     };
 
+    // Load transcript from sessionStorage if available
+    const loadTranscript = () => {
+      const cachedTranscript = sessionStorage.getItem(`transcript_${videoId}`);
+      if (cachedTranscript) {
+        try {
+          const data = JSON.parse(cachedTranscript);
+          setTranscript(data.transcript);
+          setTranscriptSegments(data.segments || []);
+        } catch (err) {
+          console.error('Error parsing cached transcript:', err);
+        }
+      }
+    };
+
     if (videoId) {
       loadVideoData();
+      loadTranscript();
     }
   }, [videoId]);
 
   useEffect(() => {
-    if (activeTab === 'transcript' && !transcript) {
+    // Only fetch if transcript tab is active AND transcript not already loaded
+    if (activeTab === 'transcript' && !transcript && !loadingTranscript) {
       const fetchTranscript = async () => {
         setLoadingTranscript(true);
         try {
@@ -61,7 +77,9 @@ export default function VideoPage() {
           
           if (data.transcript) {
             setTranscript(data.transcript);
-            setTranscriptSegments(data.segments || []); // Store timestamped segments
+            setTranscriptSegments(data.segments || []);
+            // Cache it for future use
+            sessionStorage.setItem(`transcript_${videoId}`, JSON.stringify(data));
           } else {
             setTranscript(data.error || 'Transcript not available');
           }
@@ -74,7 +92,7 @@ export default function VideoPage() {
       };
       fetchTranscript();
     }
-  }, [activeTab, videoId, transcript]);
+  }, [activeTab, videoId, transcript, loadingTranscript]);
 
   if (loading) {
     return (
