@@ -10,7 +10,7 @@ RUN npm run build
 FROM node:20-alpine
 
 RUN apk add --no-cache python3 py3-pip ffmpeg \
- && pip3 install --break-system-packages --no-cache-dir yt-dlp
+ && pip3 install --break-system-packages --no-cache-dir yt-dlp youtube-transcript-api
 
 WORKDIR /app
 COPY package*.json ./

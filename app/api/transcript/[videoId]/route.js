@@ -1,224 +1,102 @@
 import { NextResponse } from "next/server";
-import YTDlpWrap from "yt-dlp-wrap";
+import { spawn } from "child_process";
 
-/* ---------- helpers ---------- */
+/* ---------- Main Method: Python youtube-transcript-api (WORKING) ---------- */
 
-// Normalize mixed Hindi / Urdu / Hinglish
-function normalizeText(text) {
-  return text
-    .replace(/\s+/g, " ")
-    .replace(/[۔]/g, ".")
-    .trim();
-}
+async function fetchTranscriptPython(videoId) {
+  return new Promise((resolve, reject) => {
+    const python = spawn('python3', ['-c', `
+import json
+from youtube_transcript_api import YouTubeTranscriptApi
 
-// Check if two strings are similar
-function isSimilar(str1, str2, threshold = 0.9) {
-  if (str1 === str2) return true;
-
-  const maxLen = Math.max(str1.length, str2.length);
-  if (maxLen === 0) return true;
-
-  const shorter = str1.length < str2.length ? str1 : str2;
-  const longer = str1.length >= str2.length ? str1 : str2;
-
-  if (longer.length > shorter.length * 1.2) return false;
-
-  let matches = 0;
-  for (let i = 0; i < shorter.length; i++) {
-    if (longer.includes(shorter.substring(i, i + 3))) {
-      matches += 3;
+try:
+    # Create API instance and list transcripts
+    api = YouTubeTranscriptApi()
+    transcript_list = api.list('${videoId}')
+    
+    # Find Hindi or English transcript
+    try:
+        transcript = transcript_list.find_transcript(['hi', 'en'])
+    except:
+        transcript = transcript_list.find_generated_transcript(['hi', 'en'])
+    
+    # Fetch transcript data
+    data = transcript.fetch()
+    
+    # Format segments with timestamps
+    segments = []
+    for item in data:
+        start = item.start
+        hours = int(start // 3600)
+        minutes = int((start % 3600) // 60)
+        seconds = int(start % 60)
+        milliseconds = int((start % 1) * 1000)
+        timestamp = f"{hours:02d}:{minutes:02d}:{seconds:02d}.{milliseconds:03d}"
+        segments.append({
+            "timestamp": timestamp,
+            "text": item.text.strip()
+        })
+    
+    # Full text
+    full_text = ' '.join([item.text for item in data])
+    
+    result = {
+        "transcript": full_text,
+        "segments": segments,
+        "language": transcript.language_code,
+        "source": "youtube-transcript-api"
     }
-  }
+    
+    print(json.dumps(result))
+except Exception as e:
+    import traceback
+    print(json.dumps({"error": str(e), "traceback": traceback.format_exc()}))
+`]);
 
-  const similarity = matches / maxLen;
-  return similarity >= threshold;
-}
+    let dataString = '';
+    let errorString = '';
 
-/* ---------- Main Method: yt-dlp ---------- */
+    python.stdout.on('data', (data) => {
+      dataString += data.toString();
+    });
 
-async function fetchViaYtDlp(videoId, retryCount = 0) {
-  const MAX_RETRIES = 1;
-  const RETRY_DELAY = 5000;
+    python.stderr.on('data', (data) => {
+      errorString += data.toString();
+    });
 
-  try {
-    console.log(
-      "🎥 Trying yt-dlp for:",
-      videoId,
-      retryCount > 0 ? `(Retry ${retryCount}/${MAX_RETRIES})` : ""
-    );
-
-    const ytDlp = new YTDlpWrap();
-    const fs = require("fs");
-
-    console.log("🔄 Downloading subtitles...");
-
-    const tempFile = `/tmp/yt-subtitle-${videoId}-${Date.now()}`;
-
-    try {
-      console.log("📝 Trying Hindi subtitles...");
-
-      const hiOptions = [
-        `https://www.youtube.com/watch?v=${videoId}`,
-        "--skip-download",
-        "--write-auto-subs",
-        "--sub-lang",
-        "hi",
-        "--sub-format",
-        "vtt",
-        "-o",
-        tempFile,
-        "--user-agent",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-        "--no-warnings",
-        "--quiet",
-      ];
+    python.on('close', (code) => {
+      if (code !== 0) {
+        reject(new Error(errorString || 'Python script failed'));
+        return;
+      }
 
       try {
-        await ytDlp.execPromise(hiOptions);
-      } catch {
-        console.log("⚠️ Hindi failed, trying English...");
-        
-        const enOptions = [
-          `https://www.youtube.com/watch?v=${videoId}`,
-          "--skip-download",
-          "--write-auto-subs",
-          "--sub-lang",
-          "en",
-          "--sub-format",
-          "vtt",
-          "-o",
-          tempFile,
-          "--user-agent",
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-          "--no-warnings",
-          "--quiet",
-        ];
-        
-        await ytDlp.execPromise(enOptions);
-      }
-
-      const possibleFiles = [
-        `${tempFile}.hi.vtt`,
-        `${tempFile}.en.vtt`,
-        `${tempFile}.hi-IN.vtt`,
-        `${tempFile}.en-US.vtt`,
-        `${tempFile}.vtt`,
-      ];
-
-      let subtitleFile = null;
-
-      for (const file of possibleFiles) {
-        if (fs.existsSync(file)) {
-          subtitleFile = file;
-          break;
-        }
-      }
-
-      if (!subtitleFile) {
-        throw new Error("Subtitle file not created");
-      }
-
-      let text = fs.readFileSync(subtitleFile, "utf-8");
-
-      // Parse VTT with timestamps
-      const lines = text.split("\n");
-      const segments = [];
-      let currentTimestamp = null;
-
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
-
-        if (
-          !line ||
-          line.includes("WEBVTT") ||
-          line.includes("Kind:") ||
-          line.includes("Language:")
-        ) {
-          continue;
-        }
-
-        // Extract timestamp
-        if (line.includes("-->")) {
-          const timestampMatch = line.match(
-            /(\d{2}:\d{2}:\d{2}\.\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}\.\d{3})/
-          );
-          if (timestampMatch) {
-            currentTimestamp = timestampMatch[1];
+        const result = JSON.parse(dataString);
+        if (result.error) {
+          console.error("Python error:", result.error);
+          if (result.traceback) {
+            console.error("Traceback:", result.traceback);
           }
-          continue;
+          reject(new Error(result.error));
+        } else {
+          resolve(result);
         }
-
-        // Skip line numbers
-        if (line.match(/^\d+$/)) {
-          continue;
-        }
-
-        // Extract text with timestamp
-        if (currentTimestamp && line.length > 0) {
-          const cleanText = line
-            .replace(/<[^>]+>/g, "")
-            .replace(/&amp;/g, "&")
-            .replace(/&#39;/g, "'")
-            .replace(/&quot;/g, '"')
-            .trim();
-
-          if (cleanText.length > 0) {
-            segments.push({
-              timestamp: currentTimestamp,
-              text: cleanText,
-            });
-          }
-        }
+      } catch (e) {
+        reject(new Error('Failed to parse Python output: ' + dataString));
       }
-
-      // Remove duplicates
-      const uniqueSegments = [];
-      let lastText = "";
-
-      for (const segment of segments) {
-        if (segment.text === lastText) continue;
-        if (lastText && isSimilar(segment.text, lastText)) continue;
-
-        uniqueSegments.push(segment);
-        lastText = segment.text;
-      }
-
-      text = uniqueSegments
-        .map((s) => s.text)
-        .join(" ")
-        .replace(/\s+/g, " ")
-        .trim();
-
-      fs.unlinkSync(subtitleFile);
-
-      return {
-        text,
-        segments: uniqueSegments,
-        source: "yt-dlp",
-        language_hint: subtitleFile.includes(".hi.") ? "hi" : "en",
-      };
-    } catch (err) {
-      if (
-        err.message.includes("429") ||
-        err.message.includes("Too Many Requests")
-      ) {
-        if (retryCount < MAX_RETRIES) {
-          await new Promise((r) => setTimeout(r, RETRY_DELAY));
-          return fetchViaYtDlp(videoId, retryCount + 1);
-        }
-      }
-      throw err;
-    }
-  } catch (error) {
-    console.error("❌ FAILED:", error);
-    throw error;
-  }
+    });
+  });
 }
 
 /* ---------- API ---------- */
 
 export async function GET(request, { params }) {
-  const { videoId } =await params;
+  const { videoId } = await params;
+
+  console.log("\n" + "=".repeat(60));
+  console.log("🎬 NEW TRANSCRIPT REQUEST");
+  console.log("📹 Video ID:", videoId);
+  console.log("=".repeat(60) + "\n");
 
   if (!videoId) {
     return NextResponse.json(
@@ -228,18 +106,22 @@ export async function GET(request, { params }) {
   }
 
   try {
-    const result = await fetchViaYtDlp(videoId);
+    console.log("🔄 Fetching transcript via Python...");
+    const result = await fetchTranscriptPython(videoId);
 
-    const normalized = normalizeText(result.text);
+    console.log("✅ Transcript fetched:", result.segments.length, "segments");
+    console.log("✅ Language:", result.language);
 
     return NextResponse.json({
       videoId,
-      transcript: normalized,
+      transcript: result.transcript,
       segments: result.segments,
-      language: result.language_hint || "unknown",
+      language: result.language,
       source: result.source,
     });
   } catch (error) {
+    console.error("❌ Error:", error.message);
+    
     return NextResponse.json(
       {
         error: "Transcript not available",
