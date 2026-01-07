@@ -16,10 +16,24 @@ export default function GoogleOAuthButton({ mode = 'signin' }) {
     script.defer = true;
     document.body.appendChild(script);
 
-    script.onload = () => {
-      if (window.google) {
+    script.onload = async () => {
+      // Fetch client ID from server-side config (works on Render)
+      let clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+      
+      if (!clientId) {
+        try {
+          const configRes = await fetch('/api/config');
+          const config = await configRes.json();
+          clientId = config.googleClientId;
+        } catch (e) {
+          console.error('Failed to fetch Google Client ID:', e);
+          return;
+        }
+      }
+      
+      if (window.google && clientId) {
         window.google.accounts.id.initialize({
-          client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+          client_id: clientId,
           callback: handleGoogleCallback,
         });
 

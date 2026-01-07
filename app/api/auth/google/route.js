@@ -9,7 +9,8 @@ async function verifyGoogleToken(credential) {
     const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${credential}`);
     const data = await response.json();
 
-    if (data.aud !== process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
+    const clientId = process.env.GOOGLE_CLIENT_ID || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    if (data.aud !== clientId) {
       throw new Error('Invalid token audience');
     }
 

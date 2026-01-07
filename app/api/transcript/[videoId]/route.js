@@ -12,6 +12,7 @@ from youtube_transcript_api import YouTubeTranscriptApi
 
 def try_fetch_transcript(video_id, proxy_list):
     """Try fetching transcript with multiple proxy fallback"""
+    from youtube_transcript_api._transcripts import TranscriptListFetcher
     last_error = None
     
     # Try without proxy first (works locally)
@@ -31,7 +32,8 @@ def try_fetch_transcript(video_id, proxy_list):
         try:
             print(f"Trying proxy {i+1}/{len(proxy_list)}: {proxy_url[:30]}...", file=__import__('sys').stderr)
             proxies = {'https': proxy_url, 'http': proxy_url}
-            api = YouTubeTranscriptApi(proxies=proxies)
+            fetcher = TranscriptListFetcher(proxies=proxies)
+            api = YouTubeTranscriptApi(transcript_list_fetcher=fetcher)
             transcript_list = api.list(video_id)
             transcript = get_transcript(transcript_list)
             return format_transcript(transcript, proxy_used=f"proxy_{i+1}")
@@ -53,14 +55,13 @@ def get_transcript(transcript_list):
 def format_transcript(transcript, proxy_used=None):
     """Format transcript data with timestamps"""
     data = transcript.fetch()
-def format_transcript(transcript, proxy_used=None):
-    """Format transcript data with timestamps"""
-    data = transcript.fetch()
     
     # Format segments with timestamps
     segments = []
     for item in data:
-        start = item['start']
+        start = item.start if hasattr(item, 'start') else item['start']
+        text = item.text if hasattr(item, 'text') else item['text']
+        
         hours = int(start // 3600)
         minutes = int((start % 3600) // 60)
         seconds = int(start % 60)
@@ -68,11 +69,11 @@ def format_transcript(transcript, proxy_used=None):
         timestamp = f"{hours:02d}:{minutes:02d}:{seconds:02d}.{milliseconds:03d}"
         segments.append({
             "timestamp": timestamp,
-            "text": item['text'].strip()
+            "text": text.strip()
         })
     
     # Full text
-    full_text = ' '.join([item['text'] for item in data])
+    full_text = ' '.join([item.text if hasattr(item, 'text') else item['text'] for item in data])
     
     result = {
         "transcript": full_text,
