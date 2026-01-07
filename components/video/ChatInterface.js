@@ -40,10 +40,9 @@ export default function ChatInterface({ videoId, videoData }) {
             content: data.answer,
             timestamp: new Date(),
         }
-        setMessages(prev=> [...prev, ])
+        setMessages(prev=> [...prev, aiMessage])
     } catch (err) {
         console.log('Error fetching AI response:', err);
-        setIsProcessing(false);
     } finally {
         setIsProcessing(false);
     }
