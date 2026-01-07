@@ -55,7 +55,9 @@ async function fetchViaYtDlp(videoId, retryCount = 0) {
     const tempFile = `/tmp/yt-subtitle-${videoId}-${Date.now()}`;
 
     try {
-      let options = [
+      console.log("📝 Trying Hindi subtitles...");
+
+      const hiOptions = [
         `https://www.youtube.com/watch?v=${videoId}`,
         "--skip-download",
         "--write-auto-subs",
@@ -71,14 +73,28 @@ async function fetchViaYtDlp(videoId, retryCount = 0) {
         "--quiet",
       ];
 
-      console.log("📝 Trying Hindi subtitles...");
-
       try {
-        await ytDlp.execPromise(options);
+        await ytDlp.execPromise(hiOptions);
       } catch {
         console.log("⚠️ Hindi failed, trying English...");
-        options[5] = "en";
-        await ytDlp.execPromise(options);
+        
+        const enOptions = [
+          `https://www.youtube.com/watch?v=${videoId}`,
+          "--skip-download",
+          "--write-auto-subs",
+          "--sub-lang",
+          "en",
+          "--sub-format",
+          "vtt",
+          "-o",
+          tempFile,
+          "--user-agent",
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+          "--no-warnings",
+          "--quiet",
+        ];
+        
+        await ytDlp.execPromise(enOptions);
       }
 
       const possibleFiles = [
