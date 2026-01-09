@@ -72,8 +72,15 @@ export default function HeroSection() {
       const response = await fetch(`/api/transcript/${videoId}`);
       const data = await response.json();
       
-      if (!data.transcript) {
-        setError('Could not fetch transcript for this video. Please try another video.');
+      // Check for no captions error
+      if (data.error === 'no_captions') {
+        setError(data.message || 'Captions are not available for this video. Please try another video with subtitles enabled.');
+        setLoading(false);
+        return;
+      }
+      
+      if (!response.ok || !data.transcript) {
+        setError(data.message || 'Could not fetch transcript for this video. Please try another video.');
         setLoading(false);
         return;
       }

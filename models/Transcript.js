@@ -23,7 +23,7 @@ const TranscriptSchema = new mongoose.Schema({
   videoId: {
     type: String,
     required: true,
-    unique: true,
+    unique: true, // This creates the index automatically
   },
   videoTitle: {
     type: String,
@@ -102,7 +102,7 @@ const TranscriptSchema = new mongoose.Schema({
 });
 
 // Indexes for optimized queries
-TranscriptSchema.index({ videoId: 1 });
+// Note: videoId index is created automatically by unique: true
 TranscriptSchema.index({ lastAccessedAt: -1 });
 TranscriptSchema.index({ isPineconeIndexed: 1 });
 
