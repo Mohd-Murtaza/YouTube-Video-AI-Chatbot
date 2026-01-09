@@ -27,15 +27,22 @@ const chatSchema = new mongoose.Schema(
       required: true,
     },
     videoId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Video',
+      type: String, // YouTube video ID (e.g., "jJh-YyokF74")
       required: true,
     },
-    title: {
+    videoTitle: {
       type: String,
-      default: 'New Chat',
+      default: 'YouTube Video',
+    },
+    videoThumbnail: {
+      type: String,
+      default: '',
     },
     messages: [messageSchema],
+    messageCount: {
+      type: Number,
+      default: 0,
+    },
     lastMessageAt: {
       type: Date,
       default: Date.now,
@@ -46,16 +53,25 @@ const chatSchema = new mongoose.Schema(
   }
 );
 
-// Index for faster queries
-chatSchema.index({ userId: 1, videoId: 1 });
+// Compound index for user + video
+chatSchema.index({ userId: 1, videoId: 1 }, { unique: true });
 chatSchema.index({ userId: 1, lastMessageAt: -1 });
+chatSchema.index({ userId: 1, updatedAt: -1 });
 
-// Update lastMessageAt when new message is added
-chatSchema.pre('save', function (next) {
+// Update lastMessageAt and messageCount when new message is added
+chatSchema.pre('save', function () {
   if (this.messages && this.messages.length > 0) {
     this.lastMessageAt = this.messages[this.messages.length - 1].timestamp;
+    this.messageCount = this.messages.length;
   }
-  next();
 });
+
+// Helper method to add a message
+chatSchema.methods.addMessage = function(role, content) {
+  this.messages.push({ role, content, timestamp: new Date() });
+  this.messageCount = this.messages.length;
+  this.lastMessageAt = new Date();
+  return this.save();
+};
 
 export default mongoose.models.Chat || mongoose.model('Chat', chatSchema);

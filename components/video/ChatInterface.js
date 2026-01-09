@@ -1,12 +1,42 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MessageCircle, Lightbulb, History, Send } from 'lucide-react';
 
 export default function ChatInterface({ videoId, videoData }) {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+
+  // Load chat history when component mounts
+  useEffect(() => {
+    const loadHistory = async () => {
+      try {
+        const response = await fetch(`/api/history/${videoId}`);
+        const data = await response.json();
+        
+        if (data.success && data.exists && data.messages.length > 0) {
+          // Convert stored messages to UI format
+          const formattedMessages = data.messages.map((msg, index) => ({
+            id: Date.now() + index,
+            type: msg.role === 'user' ? 'user' : 'ai',
+            content: msg.content,
+            timestamp: new Date(msg.timestamp)
+          }));
+          setMessages(formattedMessages);
+        }
+      } catch (error) {
+        console.error('Error loading chat history:', error);
+      } finally {
+        setIsLoadingHistory(false);
+      }
+    };
+
+    if (videoId) {
+      loadHistory();
+    }
+  }, [videoId]);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
@@ -71,10 +101,12 @@ export default function ChatInterface({ videoId, videoData }) {
       <div className={`border-b border-gray-800 flex-shrink-0 ${messages.length === 0 ? 'p-3 lg:p-6' : 'p-2 lg:p-4'}`}>
         <div className="flex items-center gap-2 mb-2 lg:mb-2">
           <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-          <span className="text-xs lg:text-sm text-gray-400 font-medium">Chat</span>
+          <span className="text-xs lg:text-sm text-gray-400 font-medium">
+            Chat {messages.length > 0 && `(${messages.length} messages)`}
+          </span>
         </div>
         
-        {messages.length === 0 && (
+        {messages.length === 0 && !isLoadingHistory && (
           <>
             <h2 className="text-lg lg:text-2xl font-bold mb-2 lg:mb-4 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
               Ask anything about this video
@@ -97,6 +129,13 @@ export default function ChatInterface({ videoId, videoData }) {
               <span className="hidden sm:inline">Chat with this video now</span>
               <span className="sm:hidden">Start Chat</span>
             </button>
+        
+        {isLoadingHistory && (
+          <div className="text-center py-4">
+            <div className="inline-block w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-xs text-gray-500 mt-2">Loading chat history...</p>
+          </div>
+        )}
 
             {/* Quick Actions - Hidden on mobile, show on desktop */}
             <div className="hidden lg:grid grid-cols-3 gap-2 mt-4">
