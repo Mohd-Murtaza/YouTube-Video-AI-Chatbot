@@ -75,7 +75,10 @@ export default function VideoPage() {
           const response = await fetch(`/api/transcript/${videoId}`);
           const data = await response.json();
           
-          if (data.transcript) {
+          // Check for no captions error
+          if (data.error === 'no_captions') {
+            setTranscript(data.message || 'Captions are not available for this video. Please try another video with subtitles enabled.');
+          } else if (data.transcript) {
             setTranscript(data.transcript);
             setTranscriptSegments(data.segments || []);
             // Cache it for future use
@@ -85,7 +88,7 @@ export default function VideoPage() {
           }
         } catch (error) {
           console.error('Error fetching transcript:', error);
-          setTranscript('Failed to load transcript');
+          setTranscript('Failed to load transcript. Please try again later.');
         } finally {
           setLoadingTranscript(false);
         }

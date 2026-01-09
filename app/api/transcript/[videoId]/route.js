@@ -62,8 +62,23 @@ export async function GET(req, { params }) {
 
     if (!res.ok) {
       console.error(`❌ API returned status ${res.status} for ${videoId}`);
+      
+      // Check if it's a captions not available error
+      const errorData = await res.json().catch(() => ({}));
+      
+      if (res.status === 500 || res.status === 404) {
+        return NextResponse.json(
+          { 
+            error: "no_captions",
+            message: "Captions are not available for this video. Please try another video with subtitles enabled.",
+            videoId 
+          },
+          { status: 404 }
+        );
+      }
+      
       return NextResponse.json(
-        { error: "Transcript fetch failed", status: res.status },
+        { error: "Transcript fetch failed", status: res.status, videoId },
         { status: res.status }
       );
     }
@@ -73,7 +88,11 @@ export async function GET(req, { params }) {
 
     if (!data.success || !data.transcript || data.transcript.length === 0) {
       return NextResponse.json(
-        { error: "No transcript available", videoId },
+        { 
+          error: "no_captions",
+          message: "No captions available for this video. The video may not have subtitles or they may be disabled.",
+          videoId 
+        },
         { status: 404 }
       );
     }
