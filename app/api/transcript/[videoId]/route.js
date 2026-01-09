@@ -2,16 +2,7 @@ import { NextResponse } from "next/server";
 import connectDB from "@/lib/db/mongodb";
 import Transcript from "@/models/Transcript";
 import { fetchVideoDetails } from "@/lib/youtube";
-
-// Helper: Convert milliseconds to HH:MM:SS format
-function formatTimestamp(ms) {
-  const totalSeconds = Math.floor(ms / 1000);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  
-  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-}
+import { formatTimestamp } from "@/lib/utils/formatters";
 
 export async function GET(req, { params }) {
   const { videoId } = await params;
