@@ -1,13 +1,25 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { MessageCircle, Lightbulb, History, Send } from 'lucide-react';
+import MessageFormatter from '@/components/chat/MessageFormatter';
 
 export default function ChatInterface({ videoId, videoData }) {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
+
+  // Auto-scroll to bottom when messages change
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isProcessing]);
 
   // Load chat history when component mounts
   useEffect(() => {
@@ -163,7 +175,10 @@ export default function ChatInterface({ videoId, videoData }) {
       </div>
 
       {/* Chat Messages */}
-      <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 min-h-0 custom-scrollbar">
+      <div 
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 min-h-0 custom-scrollbar"
+      >
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-4">
             <div className="w-20 h-20 rounded-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center mb-4 shadow-lg">
@@ -188,7 +203,7 @@ export default function ChatInterface({ videoId, videoData }) {
                     : 'bg-gray-900 text-gray-200 border border-gray-800'
                 }`}
               >
-                <p className="text-sm leading-relaxed">{message.content}</p>
+                <MessageFormatter content={message.content} type={message.type} />
               </div>
             </div>
           ))
@@ -204,6 +219,8 @@ export default function ChatInterface({ videoId, videoData }) {
             </div>
           </div>
         )}
+        {/* Invisible element for auto-scroll */}
+        <div ref={messagesEndRef} />
       </div>
 
       {/* Input Area */}
