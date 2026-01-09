@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import Groq from "groq-sdk";
 import connectDB from "@/lib/db/mongodb";
 import Transcript from "@/models/Transcript";
+import Chat from '@/models/Chat';
+import { authMiddleware } from '@/lib/auth/middleware';
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
@@ -20,9 +22,13 @@ export async function POST(req) {
 
     await connectDB();
 
+    // Get authenticated user
+    const { user, error: authError } = await authMiddleware(req);
+    if (authError) return authError;
+
     // Fetch transcript from MongoDB with timestamps
     const transcriptDoc = await Transcript.findOne({ videoId })
-      .select('videoTitle channelTitle description segments transcript')
+      .select('videoTitle channelTitle description thumbnail segments transcript')
       .lean();
 
     if (!transcriptDoc) {
@@ -36,6 +42,15 @@ export async function POST(req) {
     const transcriptWithTimestamps = transcriptDoc.segments
       .map(seg => `[${seg.timestamp}] ${seg.text}`)
       .join('\n');
+
+    // Get or create chat history for this user + video
+    let chatDoc = await Chat.findOne({ userId: user.id, videoId });
+    
+    // Get last 10 messages for conversation context
+    const conversationHistory = chatDoc?.messages.slice(-10).map(msg => ({
+      role: msg.role,
+      content: msg.content
+    })) || [];
 
     // Create optimized prompt for Groq
     const systemPrompt = `You are a helpful AI assistant that answers questions about YouTube videos based on their transcripts.
@@ -61,13 +76,14 @@ EXAMPLE RESPONSES:
 - "Between 00:05:00 and 00:06:30, you can see..."
 - "This topic is discussed at 00:03:45"`;
 
-    // Call Groq API
+    // Call Groq API with conversation history
     const completion = await groq.chat.completions.create({
       messages: [
         {
           role: "system",
           content: systemPrompt,
         },
+        ...conversationHistory,
         {
           role: "user",
           content: message,
@@ -81,10 +97,31 @@ EXAMPLE RESPONSES:
 
     const answer = completion.choices[0]?.message?.content || "Sorry, I couldn't generate a response.";
 
+    // Save chat history
+    if (!chatDoc) {
+      chatDoc = new Chat({
+        userId: user.id,
+        videoId,
+        videoTitle: transcriptDoc.videoTitle || videoData?.title || 'YouTube Video',
+        videoThumbnail: transcriptDoc.thumbnail || videoData?.thumbnail || '',
+        messages: []
+      });
+    }
+
+    // Add messages
+    chatDoc.messages.push({ role: 'user', content: message, timestamp: new Date() });
+    chatDoc.messages.push({ role: 'assistant', content: answer, timestamp: new Date() });
+    chatDoc.messageCount = chatDoc.messages.length;
+    chatDoc.lastMessageAt = new Date();
+    
+    await chatDoc.save();
+
     return NextResponse.json({
       answer,
       videoId,
       videoTitle: transcriptDoc.videoTitle,
+      messageCount: chatDoc.messages.length,
+      chatId: chatDoc._id
     });
 
   } catch (error) {

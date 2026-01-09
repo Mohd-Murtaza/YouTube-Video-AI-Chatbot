@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { Menu, X, Play, LogOut, User } from 'lucide-react';
+import { Menu, X, Play, LogOut, User, History } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import AuthModal from '@/components/auth/AuthModal';
 import ForgotPasswordModal from '@/components/auth/ForgotPasswordModal';
@@ -59,6 +59,13 @@ export default function Navbar() {
                 
                 {user ? (
                   <div className="flex items-center gap-4">
+                    <Link 
+                      href="/history"
+                      className="text-gray-300 hover:text-blue-500 transition font-medium flex items-center gap-2"
+                    >
+                      <History className="w-4 h-4" />
+                      History
+                    </Link>
                     <span className="text-gray-300 flex items-center gap-2">
                       <User className="w-4 h-4" />
                       {user.name}
@@ -108,6 +115,14 @@ export default function Navbar() {
                 </a>
                 {user ? (
                   <>
+                    <Link 
+                      href="/history"
+                      onClick={handleNavClick}
+                      className="flex items-center gap-2 text-gray-300 hover:text-blue-500 transition font-medium"
+                    >
+                      <History className="w-4 h-4" />
+                      History
+                    </Link>
                     <div className="flex items-center gap-3 px-4 py-3 bg-white/5 rounded-lg border border-white/10">
                       <span className="text-gray-300 flex items-center gap-2">
                       <User className="w-4 h-4" />
