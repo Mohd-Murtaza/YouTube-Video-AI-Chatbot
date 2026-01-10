@@ -54,9 +54,17 @@ const userSchema = new mongoose.Schema(
     },
     // Expiration timestamp for unverified users
     // Will be removed once user is verified
+    // Only set for local provider (traditional signup) - Google OAuth users won't have this field
     expiresAt: {
       type: Date,
-      default: () => new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
+      default: function() {
+        // Only set expiration for local provider users
+        // Google OAuth users should not have this field
+        if (this.provider === 'google' || this.isVerified) {
+          return undefined;
+        }
+        return new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours from now
+      },
       index: { expires: 0 }, // TTL index - MongoDB will auto-delete when expiresAt is reached
     },
     // Refresh tokens stored as array (no separate model needed)

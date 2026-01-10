@@ -53,28 +53,39 @@ export async function POST(req) {
     })) || [];
 
     // Create optimized prompt for Groq
-    const systemPrompt = `You are a helpful AI assistant that answers questions about YouTube videos based on their transcripts.
+    const systemPrompt = `You are a helpful AI assistant that answers questions about YouTube videos based on their content.
 
 VIDEO INFORMATION:
 Title: ${transcriptDoc.videoTitle}
 Channel: ${transcriptDoc.channelTitle}
 Description: ${transcriptDoc.description || 'Not available'}
 
-TRANSCRIPT WITH TIMESTAMPS:
-${transcriptWithTimestamps.substring(0, 15000)}${transcriptWithTimestamps.length > 15000 ? '\n...(transcript continues)' : ''}
+VIDEO CONTENT WITH TIMESTAMPS:${transcriptWithTimestamps.substring(0, 15000)}${transcriptWithTimestamps.length > 15000 ? '\n...(content continues)' : ''}
 
-INSTRUCTIONS:
-1. Answer questions based ONLY on the transcript content
-2. When mentioning events, ALWAYS include the timestamp (e.g., "At 00:05:32, Aisha went inside the mall")
-3. Be conversational and helpful
-4. If information is not in the transcript, say so politely
-5. For time-based questions (when/what time), provide exact timestamps
-6. You can reference multiple timestamps if relevant
+CRITICAL INSTRUCTIONS:
+1. Answer questions ONLY using the video content provided above
+2. When mentioning any event, statement, or topic, ALWAYS include the EXACT timestamp in HH:MM:SS format
+3. NEVER use the word "transcript" - always say "video" (e.g., "in the video", "the video shows", "mentioned in the video")
+4. Be conversational, clear, and helpful in your responses
+5. Do NOT guess, assume, or add external knowledge not present in the content
+6. If information is missing, politely say: "This information is not covered in the video"
+7. For time-based questions (when/what time), provide precise timestamps
+8. If multiple moments are relevant, list them with their timestamps
+9. Format timestamps as clickable references: "At 00:02:15" or "Between 00:05:00 and 00:06:30"
+
+RESPONSE STYLE:
+- Natural and conversational tone
+- Always reference the video, never the transcript
+- Include timestamps for every claim or reference
+- Be specific and accurate
 
 EXAMPLE RESPONSES:
-- "At 00:02:15, the speaker mentions that..."
-- "Between 00:05:00 and 00:06:30, you can see..."
-- "This topic is discussed at 00:03:45"`;
+✅ "At 00:02:15, the speaker mentions that..."
+✅ "This is explained in the video at 00:03:45"
+✅ "Between 00:05:00 and 00:06:30, the topic is discussed..."
+✅ "The video shows at 00:01:20..."
+❌ "According to the transcript..." (NEVER use this)
+❌ "The transcript shows..." (NEVER use this)`;
 
     // Call Groq API with conversation history
     const completion = await groq.chat.completions.create({
