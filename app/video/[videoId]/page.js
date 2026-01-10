@@ -214,7 +214,7 @@ export default function VideoPage() {
           {activeTab === 'transcript' && (
             <div className="h-full overflow-y-auto p-4 bg-gradient-to-b from-black to-gray-900">
               <h2 className="text-xl font-bold mb-4">Transcript</h2>
-              <div className="text-gray-400 text-sm leading-relaxed">
+              <div className="text-gray-400 text-sm leading-relaxed whitespace-pre-wrap">
                 {loadingTranscript ? (
                   <div className="flex items-center justify-center py-8">
                     <div className="flex gap-1">
@@ -222,29 +222,6 @@ export default function VideoPage() {
                       <div className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '0.15s' }}></div>
                       <div className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '0.3s' }}></div>
                     </div>
-                  </div>
-                ) : transcriptSegments && transcriptSegments.length > 0 ? (
-                  <div className="space-y-3">
-                    {transcriptSegments.map((segment, index) => (
-                      <div 
-                        key={index}
-                        className="flex gap-3 p-2 rounded hover:bg-gray-800/30 transition-colors cursor-pointer"
-                        onClick={() => {
-                          // Convert timestamp to seconds for video seeking
-                          const [hours, minutes, seconds] = segment.timestamp.split(':');
-                          const totalSeconds = parseInt(hours) * 3600 + parseInt(minutes) * 60 + parseFloat(seconds);
-                          // You can add video seek functionality here
-                          console.log('Seek to:', totalSeconds);
-                        }}
-                      >
-                        <span className="text-blue-400 font-mono text-xs flex-shrink-0 mt-0.5">
-                          {segment.timestamp.substring(0, 8)}
-                        </span>
-                        <span className="text-gray-300 flex-1">
-                          {segment.text}
-                        </span>
-                      </div>
-                    ))}
                   </div>
                 ) : (
                   <p>{transcript || 'No transcript available'}</p>
