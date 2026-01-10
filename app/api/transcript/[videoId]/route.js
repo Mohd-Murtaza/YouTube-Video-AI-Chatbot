@@ -48,8 +48,9 @@ export async function GET(req, { params }) {
     // Step 2: Fetch from external API
     console.log(`⏳ Transcript not in cache, fetching from API - ${videoId}`);
     
+    const transcriptApiUrl = process.env.TRANSCRIPT_API_URL;
     const res = await fetch(
-      `https://youtubetranscripts.app/api/transcript-pro?videoId=${videoId}&language=en&free_trial=1`,
+      `${transcriptApiUrl}?videoId=${videoId}&language=en&free_trial=1`,
       {
         method: "GET",
         headers: { 
