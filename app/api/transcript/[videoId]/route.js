@@ -3,6 +3,9 @@ import connectDB from "@/lib/db/mongodb";
 import Transcript from "@/models/Transcript";
 import { fetchVideoDetails } from "@/lib/youtube";
 import { formatTimestamp } from "@/lib/utils/formatters";
+import { chunkTranscriptWithMetadata } from "@/lib/rag/chunking";
+import { embedChunks } from "@/lib/rag/embeddings";
+import { saveChunksToPinecone } from "@/lib/rag/pinecone";
 
 export async function GET(req, { params }) {
   const { videoId } = await params;
@@ -30,6 +33,47 @@ export async function GET(req, { params }) {
       ).exec();
 
       console.log(`✅ Transcript fetched from MongoDB (cache hit) - ${videoId}`);
+      
+      // 🔍 Smart RAG check: If cached but not indexed, trigger background indexing
+      if (!transcript.isPineconeIndexed) {
+        console.log('⚠️ Cached transcript not indexed in Pinecone - triggering background indexing...');
+        
+        // Background indexing (non-blocking)
+        (async () => {
+          try {
+            const { chunkTranscriptWithMetadata } = await import('@/lib/rag/chunking');
+            const { embedChunks } = await import('@/lib/rag/embeddings');
+            const { saveChunksToPinecone } = await import('@/lib/rag/pinecone');
+            
+            console.log('🔗 === BACKGROUND RAG INDEXING START ===');
+            
+            const chunks = await chunkTranscriptWithMetadata({
+              videoId: transcript.videoId,
+              videoTitle: transcript.videoTitle,
+              channelTitle: transcript.channelTitle,
+              description: transcript.description,
+              segments: transcript.segments
+            });
+            
+            const embeddings = await embedChunks(chunks);
+            const result = await saveChunksToPinecone(chunks, embeddings);
+            
+            if (result.success) {
+              await Transcript.updateOne(
+                { videoId: transcript.videoId },
+                { $set: { isPineconeIndexed: true } }
+              );
+              console.log('✅ Background RAG indexing complete!');
+            }
+            
+            console.log('🔗 === BACKGROUND RAG INDEXING END ===\n');
+          } catch (bgError) {
+            console.error('⚠️ Background indexing failed:', bgError.message);
+          }
+        })();
+      } else {
+        console.log('✅ Video already indexed in Pinecone - RAG ready!');
+      }
       
       return NextResponse.json({
         videoId: transcript.videoId,
@@ -85,6 +129,7 @@ export async function GET(req, { params }) {
     }
 
     const data = await res.json();
+    console.log("🚀 ~ GET ~ data:", data)
     console.log(`📦 API response received for ${videoId}, segments: ${data.transcript?.length || 0}`);
 
     if (!data.success || !data.transcript || data.transcript.length === 0) {
@@ -131,7 +176,7 @@ export async function GET(req, { params }) {
       publishedAt: videoMetadata?.publishedAt,
       transcript: fullText,
       segments: segments,
-      language: data.language || 'en',
+      language: data.availableLanguages?.[0]?.languageCode || 'no language detect',
       source: 'youtubetranscripts.app',
       accessCount: 1,
       lastAccessedAt: new Date(),
@@ -139,6 +184,48 @@ export async function GET(req, { params }) {
 
     await newTranscript.save();
     console.log(`✅ Transcript saved to MongoDB - ${videoId}`);
+
+    // 🔗 RAG INDEXING CHAIN (Phase 4): Chunk → Embed → Store
+    // Non-blocking: If RAG fails, transcript is still saved
+    let isPineconeIndexed = false;
+    try {
+      console.log('\n🔗 === RAG INDEXING CHAIN START ===');
+      
+      // Step 1: Chunk transcript
+      console.log('📝 Step 1/3: Chunking transcript...');
+      const chunks = await chunkTranscriptWithMetadata({
+        videoId,
+        videoTitle: newTranscript.videoTitle,
+        channelTitle: newTranscript.channelTitle,
+        description: newTranscript.description,
+        segments: segments
+      });
+      
+      // Step 2: Generate embeddings
+      console.log(`🔢 Step 2/3: Generating embeddings for ${chunks.length} chunks...`);
+      const embeddings = await embedChunks(chunks);
+      
+      // Step 3: Save to Pinecone
+      console.log('💾 Step 3/3: Saving to Pinecone...');
+      const result = await saveChunksToPinecone(chunks, embeddings);
+      
+      if (result.success) {
+        // Update MongoDB with indexed flag
+        await Transcript.updateOne(
+          { videoId },
+          { $set: { isPineconeIndexed: true } }
+        );
+        isPineconeIndexed = true;
+        console.log('✅ RAG indexing complete - Video ready for semantic search!');
+      }
+      
+      console.log('🔗 === RAG INDEXING CHAIN END ===\n');
+      
+    } catch (ragError) {
+      console.error('⚠️ RAG indexing failed (non-blocking):', ragError.message);
+      console.error(ragError.stack);
+      // Don't throw - transcript is still usable without RAG
+    }
 
     return NextResponse.json({
       videoId,
@@ -150,7 +237,7 @@ export async function GET(req, { params }) {
       language: newTranscript.language,
       source: newTranscript.source,
       cached: false,
-      isPineconeIndexed: false,
+      isPineconeIndexed: isPineconeIndexed,
     });
 
   } catch (err) {

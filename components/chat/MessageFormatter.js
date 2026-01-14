@@ -14,11 +14,15 @@ export default function MessageFormatter({ content, type }) {
 
   // Fix timestamps: 00:00:12 -> 00:12, 00:01:40 -> 01:40
   const fixTimestamps = (text) => {
+    if (!text || typeof text !== 'string') return '';
     return text.replace(/\b00:(\d{2}:\d{2})\b/g, '$1');
   };
 
   // Parse message for code blocks, lists, and formatting
   const parseContent = (text) => {
+    // Safety check
+    if (!text || typeof text !== 'string') return [];
+    
     // Fix timestamps first
     text = fixTimestamps(text);
     
