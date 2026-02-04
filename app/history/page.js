@@ -17,8 +17,17 @@ export default function HistoryPage() {
 
   const loadHistory = async () => {
     try {
-      const response = await fetch('/api/history');
+      const response = await fetch('/api/history', {
+        credentials: 'include',
+      });
+      
       const data = await response.json();
+
+      if (response.status === 401) {
+        // Middleware should have redirected, but just in case
+        router.push('/');
+        return;
+      }
 
       if (data.success) {
         setHistory(data.history);

@@ -23,7 +23,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', onFo
   const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login, sendOTP, verifyOTP, changePassword } = useAuth();
+  const { login, sendOTP, verifyOTP, changePassword, loginLoading } = useAuth();
 
   if (!isOpen) return null;
 
@@ -465,10 +465,10 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', onFo
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || loginLoading}
             className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white font-semibold rounded-xl transition flex items-center justify-center gap-2"
           >
-            {loading ? (
+            {(loading || loginLoading) ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
                 {mode === 'login' ? 'Logging in...' : 'Sending OTP...'}

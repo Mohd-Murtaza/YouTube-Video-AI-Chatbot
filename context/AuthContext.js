@@ -10,11 +10,12 @@ export const useAuth = () => useContext(AuthContext);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loginLoading, setLoginLoading] = useState(false);
   const router = useRouter();
 
-  // Optimized: Check localStorage first on mount (no backend call!)
+  // Validate token on mount - check localStorage for UI state
   useEffect(() => {
-    checkAuthOptimized();
+    checkLocalStorageAuth();
   }, []);
 
   // Helper: Save user to localStorage when user state changes
@@ -32,10 +33,9 @@ export function AuthProvider({ children }) {
     saveUserToLocalStorage(userData);
   };
 
-  // Optimized auth check: localStorage only (no backend validation)
-  const checkAuthOptimized = async () => {
+  // Simple localStorage check - middleware handles token validation
+  const checkLocalStorageAuth = () => {
     try {
-      // Check localStorage for cached user data
       const cachedUser = localStorage.getItem('user');
       
       if (cachedUser) {
@@ -47,6 +47,8 @@ export function AuthProvider({ children }) {
       setLoading(false);
     } catch (error) {
       console.error('Auth check failed:', error);
+      localStorage.removeItem('user');
+      setUser(null);
       setLoading(false);
     }
   };
@@ -93,24 +95,30 @@ export function AuthProvider({ children }) {
   };
 
   const login = async (email, password) => {
-    const response = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-      body: JSON.stringify({ email, password }),
-    });
+    setLoginLoading(true);
+    
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ email, password }),
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (response.ok) {
-      setUserWithStorage(data.user);
-      router.push('/');
-      return { success: true };
+      if (response.ok) {
+        setUserWithStorage(data.user);
+        router.push('/');
+        return { success: true };
+      }
+
+      return { success: false, error: data.message };
+    } finally {
+      setLoginLoading(false);
     }
-
-    return { success: false, error: data.message };
   };
 
   // Forgot password - Send OTP
@@ -177,6 +185,7 @@ export function AuthProvider({ children }) {
       value={{
         user,
         loading,
+        loginLoading,
         setUser: setUserWithStorage,
         register,
         sendOTP,
