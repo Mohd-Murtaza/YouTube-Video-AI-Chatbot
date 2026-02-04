@@ -1,37 +1,37 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { Menu, X, Play, LogOut, User, History } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useSearchParams, useRouter } from 'next/navigation';
 import AuthModal from '@/components/auth/AuthModal';
 import ForgotPasswordModal from '@/components/auth/ForgotPasswordModal';
 
+// Separate component for auth check to use Suspense
+function AuthChecker({ setAuthModalOpen, setUser }) {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  useEffect(() => {
+    const authRequired = searchParams.get('auth');
+    
+    if (authRequired === 'required') {
+      localStorage.removeItem('user');
+      setUser(null);
+      setAuthModalOpen(true);
+      router.replace('/', { scroll: false });
+    }
+  }, []);
+
+  return null;
+}
+
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [forgotPasswordModalOpen, setForgotPasswordModalOpen] = useState(false);
   const { user, logout, setUser } = useAuth();
-  const searchParams = useSearchParams();
-  const router = useRouter();
-
-  // Check if user was redirected due to auth requirement (only once)
-  useEffect(() => {
-    const authRequired = searchParams.get('auth');
-    
-    if (authRequired === 'required') {
-      // Clear expired user data from localStorage
-      localStorage.removeItem('user');
-      setUser(null);
-      
-      // Show auth modal
-      setAuthModalOpen(true);
-      
-      // Clean up URL immediately to prevent re-triggering
-      router.replace('/', { scroll: false });
-    }
-  }, []); // Empty dependency - runs only once on mount
 
   // Lock body scroll when mobile menu is open
   useEffect(() => {
@@ -179,6 +179,14 @@ export default function Navbar() {
         />
       )}
       
+      {/* Auth Checker with Suspense */}
+      <Suspense fallback={null}>
+        <AuthChecker 
+          setAuthModalOpen={setAuthModalOpen} 
+          setUser={setUser} 
+        />
+      </Suspense>
+
       {/* Auth Modal */}
       <AuthModal 
         isOpen={authModalOpen} 
